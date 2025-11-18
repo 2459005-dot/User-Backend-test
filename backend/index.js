@@ -1,73 +1,47 @@
-// ...existing code...
 require('dotenv').config();
 
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+const express = require("express");
+const cors = require("cors");
 const cookieParser = require('cookie-parser');
-const session = require('express-session');
-const passport = require('passport');
+const mongoose = require("mongoose");
+const passport = require('./config/passport')
+
+// authRoutes
+const authRoutes = require("./routes/authroutes")
 
 const app = express();
+const PORT = process.env.PORT || 3000
 
-// 환경 변수
-const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI;
-const FRONT_ORIGIN = process.env.FRONT_ORIGIN || 'http://localhost:5173';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'dev_session_secret_change_me';
-
-// 필수 값 확인
-if (!MONGODB_URI) {
-  console.error('MONGODB_URI 설정되어 있지 않습니다. .env를 확인하세요.');
-  process.exit(1);
-}
-
-// MongoDB 연결
-mongoose.set('strictQuery', false);
-mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => {
-    console.error('MongoDB 연결 실패:', err.message);
-    process.exit(1);
-  });
-
-// 미들웨어
 app.use(cors({
-  origin: FRONT_ORIGIN,
+  origin: process.env.FRONT_ORIGIN,              // 변경됨: .env 기반 오리진 설정
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'], // 추가됨: 허용 메서드 명시
+  allowedHeaders: ['Content-Type', 'Authorization'] // 추가됨: 허용 헤더 명시
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
-app.use(session({
-  secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-  },
-}));
-app.use(passport.initialize());
-app.use(passport.session());
+app.use(passport.initialize())
 
-// TODO: passport 전략 설정 파일 연결 (예: ./config/passport)
-// require('./config/passport')(passport);
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log("MongoDB 연결 성공"))
+  .catch((err) => console.error("MongoDB 연결 실패:", err.message));
 
-// TODO: 라우트 마운트 (예: /auth, /users, /payments, /uploads)
-// app.use('/auth', require('./routes/auth'));
+app.get("/", (_req, res) => res.send("PhotoMemo API OK"));
 
-// 기본 라우트
-app.get('/', (req, res) => {
-  res.json({ ok: true, message: 'Hotel backend running' });
+app.use("/api/auth", authRoutes)
+
+// ── 404
+app.use((req, res, next) => {                    // 추가됨: 없는 경로 처리
+  res.status(404).json({ message: '요청하신 경로를 찾을 수 없습니다.' });
 });
 
-app.get('/health', (req, res) => res.send('ok'));
+// ── error handler
+app.use((err, req, res, next) => {               // 추가됨: 전역 에러 핸들러
+  console.error('Unhandled Error:', err);
+  res.status(500).json({ message: '서버 오류', error: err?.message || String(err) });
+});
 
-// 서버 시작
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running: http://localhost:${PORT}`); // 동일
 });
-
-//

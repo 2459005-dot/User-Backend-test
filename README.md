@@ -8,4 +8,4 @@
 auth = 로그인 
 lodging = 호텔 
 room = 호텔 방 
-reservation = 예약
+reservation = 예약 // 인데 11/20에 booking으로 바꿀 예정
